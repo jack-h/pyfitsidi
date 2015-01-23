@@ -244,29 +244,6 @@ def config_source(tbl, source):
   
   return tbl
 
-def config_frequency(tbl):
-  """
-  Configures the frequency table.
-  
-  Parameters
-  ----------
-  tbl: pyfits.hdu
-    table to be configured
-  """
-
-  frequency = tbl.data[0]
-
-  frequency['FREQID']         = 1
-  frequency['BANDFREQ']       = 0         # This is offset from REF_FREQ, so zero!
-  frequency['CH_WIDTH']       = 20.0/1024.0 * 10**6
-  frequency['TOTAL_BANDWIDTH']= 20*10**6
-  frequency['SIDEBAND']       = 1
-
-  tbl.data[0] = frequency
-
-  return tbl  
-
-def config_array_geometry(tbl, antenna_array):
   """  Configures the array_geometry table with Medicina values
 
   Parameters
@@ -490,30 +467,6 @@ def main():
 
   print "In: %s \nOut: %s\nConfig: %s"%(hdffile, fitsfile, configfile)
   
-  print('\nConfiguring Array geography')
-  print('--------------------------')
-  # We are at Medicina, Italy
-  (latitude, longitude, elevation) = ('44:31:24.88', '11:38:45.56', 28)
-  now = datetime.datetime.now()
-  
-  # Let's make ourselves an Array (pyEphem observer)
-  print('Location: Medicina BEST-2, Italy')
-  array_geometry = ant_array()
-  medicina = Array(lat=latitude, long=longitude,elev=elevation,date=now, antennas=array_geometry)
-
-  print('\nConfiguring phase source')
-  print('--------------------------')
-  # The source is our phase centre for UVW coordinates
-  CygA = makeSource(
-      name="CygA",
-      ra='19:59:28',
-      dec='40:44:02',
-      flux='1'
-  )
-  source = CygA
-  source.compute(medicina)
-  print "Name: %s \nRA: %s \nDEC: %s"%(source.name,source.ra,source.dec)
-  
   # Make a new blank FITS HDU
   print('\nCreating PRIMARY HDU')
   print('------------------------------------')
@@ -523,24 +476,20 @@ def main():
   print('\nCreating ARRAY_GEOMETRY')
   print('------------------------------------')
   tbl_array_geometry = make_array_geometry(config=configfile, num_rows=32)
-  tbl_array_geometry = config_array_geometry(tbl_array_geometry,array_geometry)
   
   print('\nCreating FREQUENCY')
   print('------------------------------------')
-  tbl_frequency = make_frequency(config=configxml, num_rows=1)
-  tbl_frequency = config_frequency(tbl_frequency)
+  tbl_frequency = make_frequency(config=configfile, num_rows=1)
   print('\n')
 
   print('\nCreating SOURCE')
   print('------------------------------------')
-  tbl_source = make_source(config=configxml, num_rows=1)
-  tbl_source = config_source(tbl_source, source)
+  tbl_source = make_source(config=configfile, num_rows=1)
   print('\n')
 
   print('\nCreating ANTENNA')
   print('------------------------------------')
-  tbl_antenna = make_antenna(config=configxml, num_rows=32)
-  tbl_antenna = config_antenna(tbl_antenna)
+  tbl_antenna = make_antenna(config=configfile, num_rows=32)
   print('\n')
 
   print('\nCreating UV_DATA')
@@ -556,11 +505,10 @@ def main():
   %(t_len, chan_len, bl_len, pol_len, ri_len))
   
   print('Generating blank UV_DATA rows...')
-  tbl_uv_data = make_uv_data(config=configxml, num_rows=t_len*bl_len)
+  tbl_uv_data = make_uv_data(config=configfile, num_rows=t_len*bl_len)
 
   print('Now filling FITS file with data from HDF file...')
-  # The config function is in a seperate file, so import it
-  tbl_uv_data = config_uv_data(h5,tbl_uv_data, medicina, source)
+  tbl_uv_data = config_uv_data(h5, tbl_uv_data, medicina, source)
   print tbl_uv_data.header.ascardlist()
   print('\n')
 
@@ -583,7 +531,6 @@ def main():
   hdulist.writeto(fitsfile)
 
   print('Done.')
-
 
 if __name__ == '__main__':
   main()
